@@ -1,0 +1,19 @@
+{
+  "name": "battle-royale-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "compile":  "hardhat compile",
+    "test":     "hardhat test",
+    "deploy:local":   "hardhat run scripts/deploy.js --network localhost",
+    "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
+    "deploy:base":    "hardhat run scripts/deploy.js --network base"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}

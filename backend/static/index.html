@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Agent Battle Royale</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d1117; color: #e6edf3; font-family: 'Courier New', monospace; }
+
+    header { background: #161b22; border-bottom: 1px solid #30363d; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 1.2rem; color: #f0883e; letter-spacing: 1px; }
+    .badge { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; }
+    .badge.live { border-color: #238636; color: #3fb950; }
+
+    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; padding: 16px; height: calc(100vh - 53px); }
+
+    /* Arena */
+    .arena-wrap { display: flex; flex-direction: column; gap: 10px; }
+    canvas { background: #1c2128; border: 1px solid #30363d; border-radius: 6px; display: block; }
+    .stats-bar { display: flex; gap: 16px; font-size: 0.8rem; }
+    .stat { background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 4px 10px; }
+    .stat span { color: #58a6ff; font-weight: bold; }
+
+    /* Sidebar */
+    .sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    .panel { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; }
+    .panel h2 { font-size: 0.8rem; color: #8b949e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+    /* Match controls */
+    .field { margin-bottom: 8px; }
+    .field label { font-size: 0.75rem; color: #8b949e; display: block; margin-bottom: 2px; }
+    .field input { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; color: #e6edf3; padding: 5px 8px; font-size: 0.8rem; font-family: inherit; }
+    .btn { width: 100%; padding: 7px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-family: inherit; font-weight: bold; }
+    .btn-green { background: #238636; color: #fff; }
+    .btn-blue  { background: #1f6feb; color: #fff; }
+    .btn-red   { background: #da3633; color: #fff; }
+    .btn + .btn { margin-top: 6px; }
+
+    /* Agent list */
+    .agent-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #21262d; font-size: 0.75rem; }
+    .agent-row:last-child { border-bottom: none; }
+    .agent-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+    .hp-bar { height: 4px; background: #21262d; border-radius: 2px; width: 60px; }
+    .hp-fill { height: 100%; border-radius: 2px; background: #3fb950; transition: width 0.3s; }
+
+    /* Events log */
+    #events { font-size: 0.72rem; color: #8b949e; max-height: 160px; overflow-y: auto; }
+    .ev { padding: 2px 0; border-bottom: 1px solid #21262d; }
+    .ev.zone { color: #f0883e; }
+    .ev.elim { color: #da3633; }
+
+    /* Zone info */
+    #zone-info { font-size: 0.8rem; color: #58a6ff; }
+
+    .match-id-display { font-size: 0.7rem; color: #8b949e; word-break: break-all; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>AI AGENT BATTLE ROYALE</h1>
+  <span class="badge" id="status-badge">IDLE</span>
+  <span class="badge live" id="live-badge" style="display:none">LIVE</span>
+</header>
+
+<div class="layout">
+  <!-- Arena -->
+  <div class="arena-wrap">
+    <div class="stats-bar">
+      <div class="stat">Tick: <span id="tick">0</span></div>
+      <div class="stat">Alive: <span id="alive">-</span></div>
+      <div class="stat">Total: <span id="total">-</span></div>
+      <div class="stat">Zone: <span id="zone-stat">-</span></div>
+    </div>
+    <canvas id="arena" width="640" height="640"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Create Match -->
+    <div class="panel">
+      <h2>Create Match</h2>
+      <div class="field"><label>Max Agents</label><input id="max-agents" type="number" value="10" min="2" max="100"/></div>
+      <div class="field"><label>Map Size</label><input id="map-size" type="number" value="50" min="10" max="100"/></div>
+      <div class="field"><label>Seed (blank=random)</label><input id="seed" type="number" placeholder="random"/></div>
+      <button class="btn btn-green" onclick="createMatch()">Create Match</button>
+    </div>
+
+    <!-- Register Agent -->
+    <div class="panel">
+      <h2>Register Agent</h2>
+      <div class="field"><label>Name</label><input id="ag-name" type="text" placeholder="MyBot"/></div>
+      <div class="field"><label>Endpoint URL</label><input id="ag-url" type="text" placeholder="http://localhost:9000"/></div>
+      <div class="field"><label>Owner ID</label><input id="ag-owner" type="text" placeholder="user123"/></div>
+      <button class="btn btn-blue" onclick="registerAgent()">Register Agent</button>
+    </div>
+
+    <!-- Join & Start -->
+    <div class="panel">
+      <h2>Join & Start</h2>
+      <div class="field"><label>Match ID</label><input id="join-match-id" type="text" placeholder="paste match id"/></div>
+      <div class="field"><label>Agent ID</label><input id="join-agent-id" type="text" placeholder="paste agent id"/></div>
+      <button class="btn btn-blue" onclick="joinMatch()">Join Match</button>
+      <button class="btn btn-green" onclick="startMatch()">Start Match</button>
+    </div>
+
+    <!-- Watch -->
+    <div class="panel">
+      <h2>Watch Match</h2>
+      <div class="field"><label>Match ID</label><input id="watch-id" type="text" placeholder="paste match id"/></div>
+      <button class="btn btn-blue" onclick="watchMatch()">Watch</button>
+      <div style="margin-top:8px" class="match-id-display" id="watching-label"></div>
+    </div>
+
+    <!-- Zone -->
+    <div class="panel">
+      <h2>Safe Zone</h2>
+      <div id="zone-info">–</div>
+    </div>
+
+    <!-- Agent list -->
+    <div class="panel">
+      <h2>Agents (<span id="agent-count">0</span>)</h2>
+      <div id="agent-list"></div>
+    </div>
+
+    <!-- Events -->
+    <div class="panel">
+      <h2>Events</h2>
+      <div id="events"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '';  // same origin
+let watchInterval = null;
+let currentMatchId = null;
+let mapSize = 50;
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.detail || JSON.stringify(data));
+  return data;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+
+async function createMatch() {
+  try {
+    const maxAgents = parseInt(document.getElementById('max-agents').value);
+    const ms = parseInt(document.getElementById('map-size').value);
+    const seedVal = document.getElementById('seed').value;
+    const body = { max_agents: maxAgents, map_size: ms };
+    if (seedVal) body.seed = parseInt(seedVal);
+    const match = await api('POST', '/matches', body);
+    mapSize = ms;
+    alert(`Match created!\nMatch ID: ${match.match_id}\n\nCopy this ID to join/start/watch.`);
+    document.getElementById('join-match-id').value = match.match_id;
+    document.getElementById('watch-id').value = match.match_id;
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function registerAgent() {
+  try {
+    const name = document.getElementById('ag-name').value.trim();
+    const url  = document.getElementById('ag-url').value.trim();
+    const owner = document.getElementById('ag-owner').value.trim();
+    if (!name || !url || !owner) return alert('Fill all agent fields');
+    const agent = await api('POST', '/agents', { name, endpoint_url: url, owner_id: owner });
+    alert(`Agent registered!\nAgent ID: ${agent.agent_id}\n\nCopy this ID to join a match.`);
+    document.getElementById('join-agent-id').value = agent.agent_id;
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function joinMatch() {
+  try {
+    const matchId = document.getElementById('join-match-id').value.trim();
+    const agentId = document.getElementById('join-agent-id').value.trim();
+    if (!matchId || !agentId) return alert('Fill match ID and agent ID');
+    const r = await api('POST', `/matches/${matchId}/join`, { agent_id: agentId });
+    alert(`Joined! Slot: ${r.slot}`);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function startMatch() {
+  try {
+    const matchId = document.getElementById('join-match-id').value.trim();
+    if (!matchId) return alert('Fill match ID');
+    await api('POST', `/matches/${matchId}/start`);
+    alert('Match started!');
+    document.getElementById('watch-id').value = matchId;
+    watchMatch();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+function watchMatch() {
+  const matchId = document.getElementById('watch-id').value.trim();
+  if (!matchId) return alert('Enter a match ID to watch');
+  currentMatchId = matchId;
+  document.getElementById('watching-label').textContent = 'Watching: ' + matchId;
+  if (watchInterval) clearInterval(watchInterval);
+  pollState();
+  watchInterval = setInterval(pollState, 1200);
+}
+
+async function pollState() {
+  if (!currentMatchId) return;
+  try {
+    const state = await api('GET', `/matches/${currentMatchId}/state`);
+    updateUI(state);
+    if (state.status === 'finished' || state.status === 'cancelled') {
+      clearInterval(watchInterval);
+      document.getElementById('live-badge').style.display = 'none';
+      setBadge(state.status.toUpperCase(), state.status === 'finished' ? '#3fb950' : '#da3633');
+    }
+  } catch(e) { /* ignore polling errors */ }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+
+function updateUI(state) {
+  document.getElementById('tick').textContent = state.tick;
+  document.getElementById('alive').textContent = state.alive_count;
+  document.getElementById('total').textContent = state.total_agents;
+
+  const z = state.zone;
+  if (z && z.x1 !== undefined) {
+    document.getElementById('zone-stat').textContent = `${z.x2 - z.x1 + 1}x${z.y2 - z.y1 + 1}`;
+    document.getElementById('zone-info').textContent =
+      `(${z.x1},${z.y1}) to (${z.x2},${z.y2}) — ${z.x2-z.x1+1}x${z.y2-z.y1+1}`;
+  }
+
+  setBadge(state.status.toUpperCase());
+  document.getElementById('live-badge').style.display = state.status === 'active' ? 'inline' : 'none';
+
+  renderCanvas(state);
+  renderAgentList(state.agents || []);
+  renderEvents(state.recent_events || []);
+}
+
+function setBadge(text, color) {
+  const el = document.getElementById('status-badge');
+  el.textContent = text;
+  el.style.borderColor = color || '#30363d';
+  el.style.color = color || '#8b949e';
+}
+
+function renderCanvas(state) {
+  const canvas = document.getElementById('arena');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const ms = mapSize || 50;
+  const cell = W / ms;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= ms; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(W, i * cell); ctx.stroke();
+  }
+
+  // Zone overlay (danger zone = red tint outside)
+  const z = state.zone;
+  if (z && z.x1 !== undefined) {
+    ctx.fillStyle = 'rgba(218,54,51,0.15)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#1c2128';
+    ctx.fillRect(z.x1 * cell, z.y1 * cell, (z.x2 - z.x1 + 1) * cell, (z.y2 - z.y1 + 1) * cell);
+    ctx.strokeStyle = '#f0883e';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(z.x1 * cell, z.y1 * cell, (z.x2 - z.x1 + 1) * cell, (z.y2 - z.y1 + 1) * cell);
+  }
+
+  // Agents
+  const agents = state.agents || [];
+  agents.forEach(a => {
+    if (!a.alive) return;
+    const hpFrac = Math.max(0, a.hp / 100);
+    const r = Math.round(255 * (1 - hpFrac));
+    const g = Math.round(200 * hpFrac);
+    ctx.fillStyle = `rgb(${r},${g},60)`;
+    ctx.beginPath();
+    ctx.arc((a.x + 0.5) * cell, (a.y + 0.5) * cell, Math.max(2, cell * 0.35), 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function renderAgentList(agents) {
+  const alive = agents.filter(a => a.alive);
+  document.getElementById('agent-count').textContent = `${alive.length}/${agents.length}`;
+  const el = document.getElementById('agent-list');
+  el.innerHTML = agents
+    .sort((a, b) => b.hp - a.hp)
+    .map(a => {
+      const hpPct = Math.max(0, Math.min(100, a.hp));
+      const color = a.alive ? (hpPct > 50 ? '#3fb950' : hpPct > 25 ? '#e3b341' : '#da3633') : '#484f58';
+      return `<div class="agent-row" style="opacity:${a.alive ? 1 : 0.4}">
+        <span class="agent-name" title="${a.name}">${a.name}</span>
+        <div class="hp-bar"><div class="hp-fill" style="width:${hpPct}%;background:${color}"></div></div>
+        <span style="font-size:0.7rem;color:#8b949e">${a.alive ? a.hp + 'hp' : 'dead'}</span>
+      </div>`;
+    }).join('');
+}
+
+function renderEvents(events) {
+  const el = document.getElementById('events');
+  if (!events.length) return;
+  el.innerHTML = events.map(e => {
+    const cls = e.includes('Zone') ? 'zone' : e.includes('eliminated') ? 'elim' : '';
+    return `<div class="ev ${cls}">${e}</div>`;
+  }).join('') + el.innerHTML;
+  // Trim to 50 lines
+  const rows = el.querySelectorAll('.ev');
+  if (rows.length > 50) [...rows].slice(50).forEach(r => r.remove());
+}
+
+// Init
+setBadge('IDLE');
+</script>
+</body>
+</html>

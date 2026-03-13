@@ -1,0 +1,26 @@
+databases:
+  - name: battle-royale-db
+    plan: free
+    databaseName: battle_royale
+    user: battle_royale
+
+services:
+  - type: web
+    name: battle-royale-api
+    plan: free
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: battle-royale-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPERATOR_API_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: '["https://ai-battle-royale.vercel.app"]'
+      - key: PYTHON_VERSION
+        value: "3.12.0"
