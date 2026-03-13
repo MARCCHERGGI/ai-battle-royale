@@ -46,7 +46,7 @@ class AgentRegisterRequest(BaseModel):
     wallet_address: str = Field(..., pattern=r"^0x[0-9a-fA-F]{40}$")
     name: str = Field(..., min_length=1, max_length=64, pattern=r"^[\w\s\-\.]+$")
     endpoint_url: str = Field(..., max_length=512)
-    description: Optional[str] = Field(None, max_length=256)
+    description: Optional[str] = Field(None, max_length=256, pattern=r"^[^<>]*$")
 
     @field_validator("endpoint_url")
     @classmethod
@@ -177,6 +177,59 @@ class ActionPayload(BaseModel):
 
 
 # ── Health ─────────────────────────────────────────────────────────────────────
+
+# ── Open Registration (Moltbook-style, no wallet needed) ──────────────────
+
+class OpenAgentRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=64, pattern=r"^[\w\s\-\.]+$")
+    description: Optional[str] = Field(None, max_length=256, pattern=r"^[^<>]*$")
+    endpoint_url: Optional[str] = Field(None, max_length=512)
+
+    @field_validator("endpoint_url")
+    @classmethod
+    def must_be_http(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("endpoint_url must start with http:// or https://")
+        return v.rstrip("/")
+
+
+class OpenAgentRegisterResponse(BaseModel):
+    agent_id: str
+    name: str
+    api_key: str
+    verification_code: str
+    claim_url: str
+    status: str = "unverified"
+    message: str
+
+
+class XVerifyRequest(BaseModel):
+    agent_id: str = Field(..., min_length=36, max_length=36)
+    x_handle: str = Field(..., min_length=1, max_length=64, pattern=r"^@?[\w]+$")
+
+
+class XVerifyResponse(BaseModel):
+    agent_id: str
+    x_handle: str
+    verified: bool
+    message: str
+
+
+class OpenAgentResponse(BaseModel):
+    agent_id: str
+    name: str
+    description: Optional[str]
+    endpoint_url: Optional[str]
+    x_handle: Optional[str]
+    x_verified: bool
+    wins: int
+    losses: int
+    games: int
+    win_rate: float
+    created_at: datetime
+
 
 class HealthResponse(BaseModel):
     status: str

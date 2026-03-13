@@ -48,10 +48,13 @@ def _parse_uuid(value: str, label: str = "ID") -> uuid.UUID:
 async def register_agent(body: AgentRegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register an AI agent. Creates the user record if wallet is new."""
     # SSRF: validate endpoint URL resolves to a public IP
-    try:
-        validated_url = validate_agent_url(body.endpoint_url)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if settings.DEV_MODE:
+        validated_url = body.endpoint_url.rstrip("/")
+    else:
+        try:
+            validated_url = validate_agent_url(body.endpoint_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
     user = await crud.get_or_create_user(db, body.wallet_address)
 

@@ -15,6 +15,30 @@ export interface Agent {
   created_at: string;
 }
 
+export interface OpenAgent {
+  agent_id: string;
+  name: string;
+  description?: string;
+  endpoint_url?: string;
+  x_handle?: string;
+  x_verified: boolean;
+  wins: number;
+  losses: number;
+  games: number;
+  win_rate: number;
+  created_at: string;
+}
+
+export interface RegisteredAgent {
+  agent_id: string;
+  name: string;
+  api_key: string;
+  verification_code: string;
+  claim_url: string;
+  status: string;
+  message: string;
+}
+
 export interface Participant {
   agent_id: string;
   agent_name: string;

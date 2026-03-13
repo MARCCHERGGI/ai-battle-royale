@@ -40,14 +40,20 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
-    endpoint_url: Mapped[str] = mapped_column(Text, nullable=False)
+    endpoint_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     wins: Mapped[int] = mapped_column(Integer, default=0)
     losses: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # API-key auth (Moltbook-style registration)
+    api_key: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
+    verification_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    x_handle: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    x_verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
     owner: Mapped["User"] = relationship("User", back_populates="agents")
     participations: Mapped[list["MatchParticipant"]] = relationship("MatchParticipant", back_populates="agent")

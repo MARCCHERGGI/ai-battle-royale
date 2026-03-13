@@ -16,6 +16,7 @@ from backend.schemas import (
 from backend.store import store   # in-memory live cache
 from backend.services.match_runner import NetworkMatchRunner
 from backend.security import rate_limit_write, rate_limit_global
+from backend.services.blockchain import blockchain
 from backend import crud
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,21 @@ async def create_match(body: MatchCreateRequest, db: AsyncSession = Depends(get_
     # Use cryptographically random seed if not provided (prevents seed prediction)
     seed = body.seed if body.seed is not None else secrets.randbelow(2**31)
     match = await crud.create_match(db, seed=seed, map_size=body.map_size, max_agents=body.max_agents)
+
+    # Create match on-chain (in DEV_MODE, this is simulated)
+    tx_result = await blockchain.create_match_onchain(body.max_agents)
+    if tx_result.success and tx_result.chain_match_id:
+        from sqlalchemy import update as sa_update
+        from backend.models import Match
+        await db.execute(
+            sa_update(Match).where(Match.id == match.id)
+            .values(chain_match_id=tx_result.chain_match_id)
+        )
+        logger.info("Match %s → chain_match_id=%d", str(match.id)[:8], tx_result.chain_match_id)
+
+    await db.commit()
+    # Reload with eager-loaded relationships for response formatting
+    match = await crud.get_match(db, match.id)
     logger.info("Match created: %s (seed=%d, max=%d)", str(match.id)[:8], seed, body.max_agents)
     return _fmt_match(match)
 
@@ -274,6 +290,68 @@ async def get_result(match_id: str, db: AsyncSession = Depends(get_db)):
         total_ticks=match.total_ticks,
         rankings=rankings,
     )
+
+
+# ── Prize info ────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{match_id}/prize",
+    dependencies=[Depends(rate_limit_global)],
+)
+async def get_prize_info(match_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Get prize pool and payout information for a match.
+    Shows how much the winner can claim and current on-chain status.
+    """
+    mid = _parse_uuid(match_id, "match_id")
+    match = await crud.get_match(db, mid)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    player_count = len(match.participants)
+    entry_fee_usdc = 10.0
+    gross_pool = player_count * entry_fee_usdc
+
+    # Check on-chain state if available
+    chain_info = None
+    if match.chain_match_id:
+        chain_info = await blockchain.get_match_info(match.chain_match_id)
+
+    # Check payout record
+    from sqlalchemy import select
+    from backend.models import Payout
+    result = await db.execute(
+        select(Payout).where(Payout.match_id == mid)
+    )
+    payout = result.scalar_one_or_none()
+
+    return {
+        "match_id": match_id,
+        "status": match.status,
+        "player_count": player_count,
+        "entry_fee_usdc": entry_fee_usdc,
+        "gross_prize_pool_usdc": gross_pool,
+        "platform_fee_percent": 0,  # configurable on contract
+        "net_payout_usdc": gross_pool,  # 0% fee for now
+        "chain_match_id": match.chain_match_id,
+        "chain_status": chain_info.status if chain_info else None,
+        "chain_prize_pool": chain_info.prize_pool_usdc if chain_info else None,
+        "payout": {
+            "status": payout.status if payout else "none",
+            "amount_usdc": float(payout.amount_usdc) if payout else None,
+            "winner_wallet": payout.winner_wallet if payout else None,
+            "tx_hash": payout.tx_hash if payout else None,
+        } if payout else None,
+        "how_to_claim": (
+            "Winner calls claimPrize() on the BattleRoyale smart contract. "
+            "USDC is transferred directly to the winner's wallet. "
+            "Use MetaMask or any Web3 wallet to interact with the contract."
+        ) if match.status == "finished" else None,
+        "how_to_refund": (
+            "If a match is cancelled, participants call claimRefund() on the contract. "
+            "Full entry fee (10 USDC) is returned to each player."
+        ) if match.status == "cancelled" else None,
+    }
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────

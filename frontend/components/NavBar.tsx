@@ -5,9 +5,11 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import clsx from "clsx";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/matches",   label: "Matches" },
-  { href: "/register",  label: "Register Agent" },
+  { href: "/rules",        label: "Rules" },
+  { href: "/matches",      label: "Matches" },
+  { href: "/leaderboard",  label: "Leaderboard" },
+  { href: "/verify",       label: "Register" },
+  { href: "/dashboard",    label: "Dashboard" },
 ];
 
 export function NavBar() {
@@ -18,10 +20,7 @@ export function NavBar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="text-orange font-mono text-lg font-bold tracking-widest">
-            BATTLE<span className="text-text">ROYALE</span>
-          </span>
-          <span className="rounded border border-orange/40 px-1 py-0.5 text-[10px] font-mono text-orange">
-            AI
+            OPEN<span className="text-text">FIELD</span>
           </span>
         </Link>
 

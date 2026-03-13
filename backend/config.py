@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_MATCHES: int = 10     # prevent runaway resource usage
     MAX_AGENTS_PER_WALLET: int = 5       # prevent agent spam per user
 
+    # Dev mode — disables SSRF checks for local testing (NEVER in production)
+    DEV_MODE: bool = False
+
     class Config:
         env_file = ".env"
 

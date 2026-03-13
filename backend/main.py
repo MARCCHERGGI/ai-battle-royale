@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
 
 from backend.config import settings
-from backend.routers import health, agents, matches, leaderboard, admin
+from backend.routers import health, agents, matches, leaderboard, admin, open_register
 from backend.routers import auth as auth_router
 from backend.security import is_paused
 
@@ -111,6 +111,7 @@ app.include_router(agents.router)
 app.include_router(matches.router)
 app.include_router(leaderboard.router)
 app.include_router(admin.router)
+app.include_router(open_register.router)
 
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")

@@ -288,8 +288,8 @@ class NetworkMatchRunner:
             )
 
         async with AsyncSessionLocal() as db:
-            from sqlalchemy import update as sa_update
-            from backend.models import MatchParticipant
+            from sqlalchemy import update as sa_update, select as sa_select
+            from backend.models import MatchParticipant, Match
 
             # Update each participant's final place
             for s in self._states.values():
@@ -316,6 +316,40 @@ class NetworkMatchRunner:
                 total_ticks=self._tick,
                 finished_at=datetime.utcnow(),
             )
+
+            # On-chain: declare winner if match has a chain_match_id
+            result = await db.execute(
+                sa_select(Match).where(Match.id == self.match_uuid)
+            )
+            match = result.scalar_one_or_none()
+            if match and match.chain_match_id and winner_uuid:
+                winner_agent = await crud.get_agent(db, winner_uuid)
+                if winner_agent and winner_agent.owner:
+                    from backend.services.blockchain import blockchain
+                    tx_result = await blockchain.declare_winner_onchain(
+                        match.chain_match_id,
+                        winner_agent.owner.wallet_address,
+                    )
+                    if tx_result.success:
+                        logger.info(
+                            "[%s] Winner declared on-chain: tx=%s",
+                            self.match_id[:8], tx_result.tx_hash,
+                        )
+                        # Create payout record
+                        prize_pool = len(self._states) * 10.0  # 10 USDC per player
+                        await crud.create_payout(
+                            db,
+                            match_id=self.match_uuid,
+                            winner_agent_id=winner_uuid,
+                            winner_wallet=winner_agent.owner.wallet_address,
+                            amount_usdc=prize_pool,
+                        )
+                    else:
+                        logger.error(
+                            "[%s] Failed to declare winner on-chain: %s",
+                            self.match_id[:8], tx_result.error,
+                        )
+
             await db.commit()
 
         logger.info(

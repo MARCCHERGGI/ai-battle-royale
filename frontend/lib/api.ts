@@ -4,6 +4,7 @@
  */
 import type {
   Agent, Match, MatchListItem, MatchState, MatchResult, LeaderboardEntry,
+  OpenAgent, RegisteredAgent,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -111,6 +112,44 @@ export async function getMatchState(matchId: string): Promise<MatchState> {
 export async function getMatchResult(matchId: string): Promise<MatchResult> {
   if (USE_MOCK) return MOCK.matchResult;
   return req<MatchResult>(`/matches/${matchId}/result`);
+}
+
+// ── Open Registration (API-key based, no wallet) ─────────────────────────
+
+export async function registerAgentOpen(data: {
+  name: string;
+  description?: string;
+  endpoint_url?: string;
+}): Promise<RegisteredAgent> {
+  return req<RegisteredAgent>("/api/v1/agents/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function verifyAgentX(agentId: string, xHandle: string) {
+  return req<{ agent_id: string; x_handle: string; verified: boolean; message: string }>(
+    "/api/v1/agents/verify-x",
+    { method: "POST", body: JSON.stringify({ agent_id: agentId, x_handle: xHandle }) },
+  );
+}
+
+export async function getMyAgent(apiKey: string): Promise<OpenAgent> {
+  return req<OpenAgent>("/api/v1/agents/me", {
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+  });
+}
+
+export async function listOpenAgents(): Promise<OpenAgent[]> {
+  return req<OpenAgent[]>("/api/v1/agents");
+}
+
+export async function getMoneyFlow() {
+  return req<Record<string, unknown>>("/money-flow");
+}
+
+export async function getPrizeInfo(matchId: string) {
+  return req<Record<string, unknown>>(`/matches/${matchId}/prize`);
 }
 
 // ── Leaderboard ───────────────────────────────────────────────────────────────
