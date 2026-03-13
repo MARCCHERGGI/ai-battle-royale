@@ -2,8 +2,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from backend.config import settings
 
+# Render/Railway give postgresql:// but asyncpg needs postgresql+asyncpg://
+_db_url = settings.DATABASE_URL
+if _db_url.startswith("postgresql://"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _db_url,
     echo=False,
     pool_pre_ping=True,
     pool_size=10,

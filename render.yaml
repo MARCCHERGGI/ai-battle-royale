@@ -1,12 +1,12 @@
 databases:
-  - name: battle-royale-db
+  - name: openfield-db
     plan: free
     databaseName: battle_royale
-    user: battle_royale
+    user: openfield
 
 services:
   - type: web
-    name: battle-royale-api
+    name: openfield-api
     plan: free
     runtime: python
     buildCommand: pip install -r requirements.txt
@@ -14,13 +14,15 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: battle-royale-db
+          name: openfield-db
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: OPERATOR_API_KEY
         generateValue: true
+      - key: DEV_MODE
+        value: "true"
       - key: CORS_ORIGINS
-        value: '["https://ai-battle-royale.vercel.app"]'
+        value: '["https://frontend-gamma-brown-61.vercel.app","https://openfield-ai.vercel.app","https://openfield.vercel.app","http://localhost:3000"]'
       - key: PYTHON_VERSION
         value: "3.12.0"
